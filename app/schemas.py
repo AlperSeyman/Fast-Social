@@ -3,8 +3,10 @@ from pydantic import BaseModel, ConfigDict, Field
 import uuid
 
 class PostBase(BaseModel):
-    title : str = Field(default=None, min_length=1, max_length=100)
-    content : str = Field(default=None, min_length=1)
+    caption: str | None = None
+    url : str | None = None
+    file_type: str | None = None
+    file_name: str | None = None
 
 class PostCreate(PostBase):
     pass
