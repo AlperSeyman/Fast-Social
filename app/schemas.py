@@ -11,6 +11,9 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pass
 
+class PostUpdate(BaseModel):
+    caption: str | None = None
+
 class PostResponse(PostBase):
     model_config=ConfigDict(from_attributes=True)
 

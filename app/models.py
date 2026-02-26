@@ -13,3 +13,4 @@ class Post(Base):
     file_type: Mapped[str] = mapped_column(String, nullable=False)
     file_name: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    imagekit_id: Mapped[str | None] = mapped_column(String, nullable=True)
