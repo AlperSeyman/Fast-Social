@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 
 
 from app import models
+from app.auth import CurrentUser
 from app.database import get_db
 from app.schemas import PostResponse, PostUpdate
 from app.routers.images import imagekit
@@ -43,7 +44,7 @@ async def get_post(post_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_d
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
 @router.post("", response_model=PostResponse)
-async def create_post(db: Annotated[AsyncSession, Depends(get_db)], file: UploadFile=File(...), caption: str | None = Form(None)):
+async def create_post(current_user: CurrentUser,db: Annotated[AsyncSession, Depends(get_db)], file: UploadFile=File(...), caption: str | None = Form(None)):
 
     file_bytes = await file.read()
 
@@ -54,6 +55,7 @@ async def create_post(db: Annotated[AsyncSession, Depends(get_db)], file: Upload
     )
 
     new_post = models.Post(
+        user_id=current_user.id,
         caption=caption,
         url=upload_result.url,
         file_type=file.content_type,
@@ -64,26 +66,28 @@ async def create_post(db: Annotated[AsyncSession, Depends(get_db)], file: Upload
     db.add(new_post)
 
     await db.commit()
-    await db.refresh(new_post)
+    await db.refresh(new_post, attribute_names=["user"])
 
     return new_post
 
 @router.patch("/{post_id}", response_model=PostResponse)
-async def update_patch_post(post_id: uuid.UUID, post_data: PostUpdate, db: Annotated[AsyncSession, Depends(get_db)]):
+async def update_patch_post(post_id: uuid.UUID, current_user: CurrentUser, post_data: PostUpdate, db: Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(select(models.Post).where(models.Post.id == post_id))
     post = result.scalars().first()
-
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
     update_post_dict = post_data.model_dump(exclude_unset=True)
 
+    if post.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this post.")
+
     for field, value in update_post_dict.items():
         setattr(post, field, value)
 
     await db.commit()
-    await db.refresh(post)
+    await db.refresh(post, attribute_names=["user"])
 
     return post
 
