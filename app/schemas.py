@@ -24,7 +24,7 @@ class UserPrivate(UserPublic):
 
 class UserUpdate(BaseModel):
     username: str | None = Field(default=None, min_length=1, max_length=50)
-
+    email: str | None = Field(default=None, max_length=120)
 
 class Token(BaseModel):
     access_token: str
@@ -52,4 +52,4 @@ class PostResponse(PostBase):
     id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime
-    author : UserPublic
+    user : UserPublic

@@ -28,7 +28,10 @@ router = APIRouter()
 @router.get("", response_model=list[PostResponse])
 async def get_all_posts(db: Annotated[AsyncSession, Depends(get_db)], limit: int | None=None):
 
-    result = await db.execute(select(models.Post).order_by(models.Post.created_at.desc()).limit(limit))
+    result = await db.execute(
+        select(models.Post)
+        .options(selectinload(models.Post.user))
+        .order_by(models.Post.created_at.desc()).limit(limit))
     posts = result.scalars().all()
     return posts
 
@@ -37,13 +40,17 @@ async def get_all_posts(db: Annotated[AsyncSession, Depends(get_db)], limit: int
 @router.get("/{post_id}", response_model=PostResponse)
 async def get_post(post_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
 
-    result = await db.execute(select(models.Post).where(models.Post.id == post_id))
+    result = await db.execute(
+        select(models.Post)
+        .options(selectinload(models.Post.user))
+        .where(models.Post.id == post_id))
     post = result.scalars().first()
     if post:
         return post
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-@router.post("", response_model=PostResponse)
+
+@router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post(current_user: CurrentUser,db: Annotated[AsyncSession, Depends(get_db)], file: UploadFile=File(...), caption: str | None = Form(None)):
 
     file_bytes = await file.read()
@@ -92,7 +99,7 @@ async def update_patch_post(post_id: uuid.UUID, current_user: CurrentUser, post_
     return post
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_post(post_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_post(post_id: uuid.UUID, current_user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(select(models.Post).where(models.Post.id == post_id))
     post = result.scalars().first()
@@ -105,6 +112,12 @@ async def delete_post(post_id: uuid.UUID, db: Annotated[AsyncSession, Depends(ge
             imagekit.files.delete(post.imagekit_id)
         except Exception as e:
             print(f"Could not delete from ImageKit: {e}")
+
+    if current_user.id != post.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this post",
+        )
 
     await db.delete(post)
     await db.commit()
