@@ -27,7 +27,7 @@ router = APIRouter()
 
 
 # create a user
-@router.post("", response_model=UserPrivate, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserPrivate, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate, db: Annotated[AsyncSession, Depends(database.get_db)]):
 
     result = await db.execute(select(models.User).where(func.lower(models.User.username) == user.username.lower()))

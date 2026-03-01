@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 # get all posts
-@router.get("", response_model=list[PostResponse])
+@router.get("/feed", response_model=list[PostResponse])
 async def get_all_posts(db: Annotated[AsyncSession, Depends(get_db)], limit: int | None=None):
 
     result = await db.execute(
@@ -50,7 +50,7 @@ async def get_post(post_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_d
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
 
-@router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def create_post(current_user: CurrentUser,db: Annotated[AsyncSession, Depends(get_db)], file: UploadFile=File(...), caption: str | None = Form(None)):
 
     file_bytes = await file.read()
@@ -107,17 +107,17 @@ async def delete_post(post_id: uuid.UUID, current_user: CurrentUser, db: Annotat
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
 
-    if post.imagekit_id:
-        try:
-            imagekit.files.delete(post.imagekit_id)
-        except Exception as e:
-            print(f"Could not delete from ImageKit: {e}")
-
     if current_user.id != post.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this post",
         )
+
+    if post.imagekit_id:
+        try:
+            imagekit.files.delete(post.imagekit_id)
+        except Exception as e:
+            print(f"Could not delete from ImageKit: {e}")
 
     await db.delete(post)
     await db.commit()
